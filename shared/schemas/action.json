@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://cyclops/schemas/action",
+  "title": "Action",
+  "description": "A single browser action the extension should execute.",
+  "type": "object",
+  "required": ["action"],
+  "properties": {
+    "action": {
+      "type": "string",
+      "enum": ["click", "fill", "upload", "scroll", "navigate", "screenshot", "wait", "press_key", "select"],
+      "description": "The action type."
+    },
+    "target": {
+      "type": "string",
+      "description": "Identifier of the page element to act on (used by click, fill, upload, press_key, select, scroll)."
+    },
+    "value": {
+      "type": "string",
+      "description": "Literal value to use (for select, or non-sensitive fill). Prefer value_source for anything private."
+    },
+    "value_source": {
+      "type": "string",
+      "description": "Local profile reference the extension resolves on-device. E.g. 'local_profile.email', 'local_profile.resume'. Never resolved server-side.",
+      "pattern": "^local_profile\\..+"
+    },
+    "direction": {
+      "type": "string",
+      "enum": ["up", "down", "left", "right"],
+      "description": "Scroll direction."
+    },
+    "url": {
+      "type": "string",
+      "format": "uri",
+      "description": "URL for navigate actions."
+    },
+    "key": {
+      "type": "string",
+      "description": "Key or key combination for press_key (e.g. 'Tab', 'Enter', 'Ctrl+A')."
+    },
+    "duration_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Duration in milliseconds for wait actions."
+    },
+    "selector": {
+      "type": "string",
+      "description": "Optional CSS selector hint for the element."
+    }
+  }
+}

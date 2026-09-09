@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://cyclops/schemas/context",
+  "title": "SanitizedPageContext",
+  "description": "Sanitized representation of a browser page sent to the Cyclops backend. All PII must be replaced before transmission.",
+  "type": "object",
+  "properties": {
+    "page_title": {
+      "type": "string",
+      "description": "Title of the current page."
+    },
+    "page_url_base": {
+      "type": "string",
+      "description": "Base URL of the current page without query parameters or fragments."
+    },
+    "elements": {
+      "type": "array",
+      "description": "Visible interactive elements on the page.",
+      "items": {
+        "type": "object",
+        "required": ["id", "type"],
+        "properties": {
+          "id": { "type": "string" },
+          "type": {
+            "type": "string",
+            "enum": ["button", "input", "select", "textarea", "link", "checkbox", "radio", "file", "text"]
+          },
+          "label": { "type": "string" },
+          "placeholder": { "type": "string" },
+          "value": {
+            "type": "string",
+            "description": "Current value. Must be '[REDACTED]' if it contains PII."
+          },
+          "visible": { "type": "boolean" },
+          "enabled": { "type": "boolean" }
+        }
+      }
+    },
+    "sanitization_note": {
+      "type": "string",
+      "description": "Human-readable note about what was sanitized, for the model's awareness."
+    }
+  },
+  "note": "This schema is informational. The extension may send context as a structured string rather than a JSON object."
+}

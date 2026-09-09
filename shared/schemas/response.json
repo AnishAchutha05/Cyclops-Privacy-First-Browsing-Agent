@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://cyclops/schemas/response",
+  "title": "AgentPlanResponse",
+  "description": "Top-level API response envelope from POST /agent/plan.",
+  "type": "object",
+  "required": ["actions"],
+  "additionalProperties": false,
+  "properties": {
+    "actions": {
+      "type": "array",
+      "description": "Ordered list of actions for the extension to execute locally.",
+      "minItems": 1,
+      "items": { "$ref": "action.json" }
+    }
+  },
+  "examples": [
+    {
+      "actions": [
+        { "action": "fill", "target": "email_field", "value_source": "local_profile.email" },
+        { "action": "fill", "target": "name_field", "value_source": "local_profile.full_name" },
+        { "action": "click", "target": "submit_button" }
+      ]
+    }
+  ]
+}

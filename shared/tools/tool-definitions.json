@@ -1,0 +1,79 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://cyclops/schemas/tool-definitions",
+  "title": "Cyclops Tool Definitions",
+  "description": "Canonical set of browser tools the extension can execute. The backend uses this list to validate model-generated action plans.",
+  "tools": [
+    {
+      "name": "click",
+      "description": "Click a visible element on the page.",
+      "required_args": ["target"],
+      "optional_args": [],
+      "example": { "action": "click", "target": "submit_button" }
+    },
+    {
+      "name": "fill",
+      "description": "Fill a form input with a value. Sensitive values must use local_profile references.",
+      "required_args": ["target"],
+      "optional_args": ["value", "value_source"],
+      "example": {
+        "action": "fill",
+        "target": "email_field",
+        "value_source": "local_profile.email"
+      }
+    },
+    {
+      "name": "upload",
+      "description": "Upload a local file through a file input. File contents stay local; use local_profile references.",
+      "required_args": ["target", "value_source"],
+      "optional_args": [],
+      "example": {
+        "action": "upload",
+        "target": "resume_input",
+        "value_source": "local_profile.resume"
+      }
+    },
+    {
+      "name": "scroll",
+      "description": "Scroll the page or a scrollable element.",
+      "required_args": ["direction"],
+      "optional_args": ["target"],
+      "example": { "action": "scroll", "direction": "down" }
+    },
+    {
+      "name": "navigate",
+      "description": "Navigate the browser tab to a URL.",
+      "required_args": ["url"],
+      "optional_args": [],
+      "example": { "action": "navigate", "url": "https://example.com/apply" }
+    },
+    {
+      "name": "screenshot",
+      "description": "Capture a screenshot for local vision processing by the extension. The backend never receives or processes the raw screenshot.",
+      "required_args": [],
+      "optional_args": ["target"],
+      "example": { "action": "screenshot" }
+    },
+    {
+      "name": "wait",
+      "description": "Wait for a specified duration before the next action.",
+      "required_args": ["duration_ms"],
+      "optional_args": [],
+      "example": { "action": "wait", "duration_ms": 1000 }
+    },
+    {
+      "name": "press_key",
+      "description": "Simulate pressing a keyboard key or key combination.",
+      "required_args": ["key"],
+      "optional_args": ["target"],
+      "example": { "action": "press_key", "key": "Tab" }
+    },
+    {
+      "name": "select",
+      "description": "Select an option from a <select> dropdown element.",
+      "required_args": ["target", "value"],
+      "optional_args": [],
+      "example": { "action": "select", "target": "country_dropdown", "value": "United States" }
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+[project]
+name = "cyclops-server"
+version = "0.1.0"
+description = "Cyclops — Privacy-First Browsing Agent backend"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
