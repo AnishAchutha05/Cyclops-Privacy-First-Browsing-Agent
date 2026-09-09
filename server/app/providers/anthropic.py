@@ -10,7 +10,7 @@ import anthropic
 
 from app.agent.prompt_builder import BuiltPrompt
 from app.config.settings import get_settings
-from app.providers.base import BaseProvider
+from app.providers.base import BaseProvider, ModelInfo
 
 logger = logging.getLogger(__name__)
 
@@ -56,3 +56,31 @@ class AnthropicProvider(BaseProvider):
 
         logger.debug("Anthropic response length: %d chars", len(content))
         return content
+
+    async def list_models(self) -> list[ModelInfo]:
+        settings = get_settings()
+
+        if not settings.anthropic_api_key:
+            raise RuntimeError(
+                "ANTHROPIC_API_KEY is not configured. Set it in the server environment to discover models."
+            )
+
+        client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+
+        try:
+            logger.info("Querying Anthropic for available models")
+            response = await client.models.list()
+        except anthropic.AnthropicError as exc:
+            logger.error("Anthropic model discovery error: %s", exc)
+            raise RuntimeError(f"Anthropic API error: {exc}") from exc
+
+        models = []
+        for m in response.data:
+            # The Anthropic SDK Model object has 'id' and 'display_name'
+            # Anthropic models usually start with 'claude-'
+            if m.id.startswith("claude-"):
+                name = getattr(m, "display_name", m.id)
+                models.append(ModelInfo(id=m.id, name=name))
+
+        models.sort(key=lambda x: x.name)
+        return models

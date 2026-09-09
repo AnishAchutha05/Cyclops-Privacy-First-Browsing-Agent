@@ -11,7 +11,7 @@ import openai
 
 from app.agent.prompt_builder import BuiltPrompt
 from app.config.settings import get_settings
-from app.providers.base import BaseProvider
+from app.providers.base import BaseProvider, ModelInfo
 
 logger = logging.getLogger(__name__)
 
@@ -51,3 +51,31 @@ class OpenAIProvider(BaseProvider):
         content = response.choices[0].message.content or ""
         logger.debug("OpenAI response length: %d chars", len(content))
         return content
+
+    async def list_models(self) -> list[ModelInfo]:
+        settings = get_settings()
+
+        if not settings.openai_api_key:
+            raise RuntimeError(
+                "OPENAI_API_KEY is not configured. Set it in the server environment to discover models."
+            )
+
+        client = openai.AsyncOpenAI(api_key=settings.openai_api_key)
+
+        try:
+            logger.info("Querying OpenAI for available models")
+            response = await client.models.list()
+        except openai.OpenAIError as exc:
+            logger.error("OpenAI model discovery error: %s", exc)
+            raise RuntimeError(f"OpenAI API error: {exc}") from exc
+
+        # Filter to models likely to be chat models, though we could just return all.
+        # It's safest to return models that contain 'gpt-' or 'o1-'
+        models = []
+        for m in response.data:
+            if "gpt-" in m.id or "o1-" in m.id or "o3-" in m.id:
+                models.append(ModelInfo(id=m.id, name=m.id))
+                
+        # Sort for predictable UI
+        models.sort(key=lambda x: x.name)
+        return models

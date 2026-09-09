@@ -6,8 +6,15 @@ The planner interacts exclusively through this interface — never with
 provider-specific types directly.
 """
 from abc import ABC, abstractmethod
+from pydantic import BaseModel
 
 from app.agent.prompt_builder import BuiltPrompt
+
+
+class ModelInfo(BaseModel):
+    """Normalized representation of an available model."""
+    id: str
+    name: str
 
 
 class BaseProvider(ABC):
@@ -33,4 +40,16 @@ class BaseProvider(ABC):
 
         Raises:
             RuntimeError: If the provider API call fails.
+        """
+
+    @abstractmethod
+    async def list_models(self) -> list[ModelInfo]:
+        """
+        Query the provider for available models using configured credentials.
+
+        Returns:
+            A normalized list of models.
+
+        Raises:
+            RuntimeError: If model discovery is unsupported or the API call fails.
         """
