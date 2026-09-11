@@ -3,7 +3,10 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "scripts": { "build": "vite build", "typecheck": "tsc --noEmit" },
-  "dependencies": { "react": "^18.3.1", "react-dom": "^18.3.1" },
-  "devDependencies": { "@types/chrome": "^0.0.270", "@types/react": "^18.3.3", "@types/react-dom": "^18.3.0", "@vitejs/plugin-react": "^4.3.1", "typescript": "^5.5.4", "vite": "^5.4.2" }
+  "scripts": {
+    "build": "vite build && node_modules/.bin/esbuild src/content.ts --bundle --outfile=dist/content.js --format=iife --target=chrome112 --platform=browser && cp manifest.json dist/manifest.json",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": { "lucide-react": "^1.43.0", "react": "^18.3.1", "react-dom": "^18.3.1" },
+  "devDependencies": { "@types/chrome": "^0.0.270", "@types/node": "^24.13.3", "@types/react": "^18.3.3", "@types/react-dom": "^18.3.0", "@vitejs/plugin-react": "^4.3.1", "typescript": "^5.5.4", "vite": "^5.4.2" }
 }

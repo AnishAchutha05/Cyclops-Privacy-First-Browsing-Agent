@@ -25,15 +25,17 @@ class AnthropicProvider(BaseProvider):
     def provider_id(self) -> str:
         return "anthropic"
 
-    async def generate(self, prompt: BuiltPrompt, model: str) -> str:
+    async def generate(self, prompt: BuiltPrompt, model: str, api_key: str | None = None) -> str:
         settings = get_settings()
 
-        if not settings.anthropic_api_key:
+        resolved_key = api_key or settings.anthropic_api_key
+
+        if not resolved_key:
             raise RuntimeError(
-                "ANTHROPIC_API_KEY is not configured. Set it in the server environment."
+                "ANTHROPIC_API_KEY is not configured and no key was provided."
             )
 
-        client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+        client = anthropic.AsyncAnthropic(api_key=resolved_key)
 
         try:
             logger.info("Calling Anthropic — model=%s", model)
@@ -57,15 +59,17 @@ class AnthropicProvider(BaseProvider):
         logger.debug("Anthropic response length: %d chars", len(content))
         return content
 
-    async def list_models(self) -> list[ModelInfo]:
+    async def list_models(self, api_key: str | None = None) -> list[ModelInfo]:
         settings = get_settings()
 
-        if not settings.anthropic_api_key:
+        resolved_key = api_key or settings.anthropic_api_key
+
+        if not resolved_key:
             raise RuntimeError(
-                "ANTHROPIC_API_KEY is not configured. Set it in the server environment to discover models."
+                "ANTHROPIC_API_KEY is not configured and no key was provided."
             )
 
-        client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+        client = anthropic.AsyncAnthropic(api_key=resolved_key)
 
         try:
             logger.info("Querying Anthropic for available models")

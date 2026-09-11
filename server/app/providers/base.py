@@ -26,7 +26,7 @@ class BaseProvider(ABC):
         """Unique string identifier for this provider (e.g. 'openai')."""
 
     @abstractmethod
-    async def generate(self, prompt: BuiltPrompt, model: str) -> str:
+    async def generate(self, prompt: BuiltPrompt, model: str, api_key: str | None = None) -> str:
         """
         Send the prompt to the LLM and return the raw response string.
 
@@ -43,7 +43,7 @@ class BaseProvider(ABC):
         """
 
     @abstractmethod
-    async def list_models(self) -> list[ModelInfo]:
+    async def list_models(self, api_key: str | None = None) -> list[ModelInfo]:
         """
         Query the provider for available models using configured credentials.
 

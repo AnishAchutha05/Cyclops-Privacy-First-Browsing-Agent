@@ -24,7 +24,7 @@ class CustomProvider(BaseProvider):
     def provider_id(self) -> str:
         return "custom"
 
-    async def generate(self, prompt: BuiltPrompt, model: str) -> str:
+    async def generate(self, prompt: BuiltPrompt, model: str, api_key: str | None = None) -> str:
         settings = get_settings()
 
         if not settings.custom_api_base_url:
@@ -32,9 +32,11 @@ class CustomProvider(BaseProvider):
                 "CUSTOM_API_BASE_URL is not configured. "
                 "Set it to the base URL of your OpenAI-compatible endpoint."
             )
+            
+        resolved_key = api_key or settings.custom_api_key or "none"
 
         client = openai.AsyncOpenAI(
-            api_key=settings.custom_api_key or "none",   # some local servers don't need a real key
+            api_key=resolved_key,
             base_url=settings.custom_api_base_url,
         )
 
@@ -57,7 +59,7 @@ class CustomProvider(BaseProvider):
         logger.debug("Custom provider response length: %d chars", len(content))
         return content
 
-    async def list_models(self) -> list[ModelInfo]:
+    async def list_models(self, api_key: str | None = None) -> list[ModelInfo]:
         settings = get_settings()
 
         if not settings.custom_api_base_url:
@@ -65,9 +67,11 @@ class CustomProvider(BaseProvider):
                 "CUSTOM_API_BASE_URL is not configured. "
                 "Set it to the base URL of your OpenAI-compatible endpoint to discover models."
             )
+            
+        resolved_key = api_key or settings.custom_api_key or "none"
 
         client = openai.AsyncOpenAI(
-            api_key=settings.custom_api_key or "none",
+            api_key=resolved_key,
             base_url=settings.custom_api_base_url,
         )
 

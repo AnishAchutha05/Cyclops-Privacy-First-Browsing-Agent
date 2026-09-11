@@ -58,6 +58,10 @@ class PlanRequest(BaseModel):
         default=None,
         description="Optional non-PII metadata (page URL without query params, page title, etc.).",
     )
+    api_key: Optional[str] = Field(
+        default=None,
+        description="Optional API key provided by the frontend for the selected provider.",
+    )
 
 
 class ActionItem(BaseModel):
@@ -106,6 +110,7 @@ async def create_plan(request: PlanRequest) -> PlanResponse:
             available_tools=request.available_tools,
             provider=request.provider,
             model=request.model,
+            api_key=request.api_key,
         )
     except UnsupportedProviderError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

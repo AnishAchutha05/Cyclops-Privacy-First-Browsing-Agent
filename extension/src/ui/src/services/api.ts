@@ -47,7 +47,14 @@ export async function getProviders(): Promise<Provider[]> {
     );
   }
 
-  return response.json();
+  const data = await response.json();
+  if (Array.isArray(data)) {
+    return data;
+  }
+  if (data && Array.isArray(data.providers)) {
+    return data.providers;
+  }
+  return [];
 }
 
 /* =========================
@@ -55,12 +62,19 @@ export async function getProviders(): Promise<Provider[]> {
    ========================= */
 
 export async function getModels(
-  provider: string
+  provider: string,
+  apiKey?: string
 ): Promise<Model[]> {
+  const headers: Record<string, string> = {};
+  if (apiKey) {
+    headers["X-API-Key"] = apiKey;
+  }
+  
   const response = await fetch(
     `${API_BASE_URL}/providers/${encodeURIComponent(
       provider
-    )}/models`
+    )}/models`,
+    { headers }
   );
 
   if (!response.ok) {
@@ -69,7 +83,14 @@ export async function getModels(
     );
   }
 
-  return response.json();
+  const data = await response.json();
+  if (Array.isArray(data)) {
+    return data;
+  }
+  if (data && Array.isArray(data.models)) {
+    return data.models;
+  }
+  return [];
 }
 
 /* =========================

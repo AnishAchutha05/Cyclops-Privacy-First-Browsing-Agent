@@ -18,6 +18,7 @@ import ApiKeyInput from "./components/ApiKeyInput";
 import ModelSelect from "./components/ModelSelect";
 import StatusBadge from "./components/StatusBadge";
 import CyclopsCharacter from "./components/CyclopsCharacter";
+import VoiceInput from "./components/VoiceInput";
 
 import { getProviders, getModels } from "./services/api";
 import type { Provider, Model } from "./services/api";
@@ -81,6 +82,12 @@ function App() {
 
   const [visionStatus, setVisionStatus] =
     useState("NOT ACTIVE");
+
+  /* =========================
+     VOICE INPUT
+     ========================= */
+
+  const [showVoice, setShowVoice] = useState(false);
 
   /* =========================
      CONFIRMATION
@@ -154,6 +161,7 @@ function App() {
           await chrome.storage.local.get([
             "provider",
             "model",
+            "apiKey"
           ]);
 
         const savedProvider =
@@ -166,11 +174,17 @@ function App() {
             ? saved.model
             : "";
 
+        const savedApiKey =
+          typeof saved.apiKey === "string"
+            ? saved.apiKey
+            : "";
+
         if (!savedProvider) {
           return;
         }
 
         setProvider(savedProvider);
+        if (savedApiKey) setApiKey(savedApiKey);
 
         try {
           setLoadingModels(true);
@@ -179,7 +193,7 @@ function App() {
           setStatusMessage("LOADING MODELS...");
 
           const availableModels =
-            await getModels(savedProvider);
+            await getModels(savedProvider, savedApiKey);
 
           setModels(availableModels);
 
@@ -251,47 +265,43 @@ function App() {
       return;
     }
 
+    setStatus("idle");
+    setStatusMessage("ENTER API KEY TO CONTINUE");
+  }
+
+  /* =========================
+     VALIDATE API KEY
+     ========================= */
+
+  async function handleValidateKey() {
+    if (!provider) return;
+    
     try {
       setLoadingModels(true);
-
       setStatus("loading");
-      setStatusMessage("LOADING MODELS...");
+      setStatusMessage("VALIDATING KEY...");
 
-      const availableModels =
-        await getModels(value);
-
+      const availableModels = await getModels(provider, apiKey);
       setModels(availableModels);
 
       if (availableModels.length === 0) {
         setStatus("error");
-        setStatusMessage(
-          "NO MODELS AVAILABLE"
-        );
-
+        setStatusMessage("NO MODELS AVAILABLE");
         return;
       }
 
       if (availableModels.length === 1) {
-        setSelectedModel(
-          availableModels[0].id
-        );
+        setSelectedModel(availableModels[0].id);
       }
 
       setStatus("success");
-      setStatusMessage("MODELS LOADED");
+      setStatusMessage("KEY VALIDATED");
     } catch (error) {
-      console.error(
-        "Failed to load models:",
-        error
-      );
-
+      console.error("Failed to validate key:", error);
       setModels([]);
       setSelectedModel("");
-
       setStatus("error");
-      setStatusMessage(
-        "MODEL LOAD FAILED"
-      );
+      setStatusMessage("INVALID KEY OR NETWORK ERROR");
     } finally {
       setLoadingModels(false);
     }
@@ -323,6 +333,7 @@ function App() {
       await chrome.storage.local.set({
         provider,
         model: selectedModel,
+        apiKey,
         configured: true,
       });
 
@@ -348,9 +359,64 @@ function App() {
      ========================= */
 
   function handleVoiceButton() {
-    setStatus("idle");
-    setStatusMessage("VOICE INPUT READY");
+    setShowVoice(true);
   }
+
+  function handleVoiceTranscript(text: string) {
+    handleTaskChange(text);
+    setShowVoice(false);
+  }
+
+  /* =========================
+     POLL FOR STATUS
+     ========================= */
+
+  useEffect(() => {
+    let intervalId: number;
+
+    if (agentState === "thinking" || agentState === "executing" || agentState === "planning") {
+      intervalId = window.setInterval(() => {
+        chrome.runtime.sendMessage({ type: "status" }, (response) => {
+          if (!response) return;
+
+          if (response.status === "failed") {
+            setAgentState("error");
+            setCurrentAction("TASK FAILED");
+            setStatus("error");
+            setStatusMessage(response.error || "Execution failed");
+          } else if (response.status === "completed") {
+            setAgentState("success");
+            setCurrentAction("TASK COMPLETED");
+            setStatus("success");
+            setStatusMessage("TASK COMPLETED");
+          } else if (response.status === "awaiting_confirmation") {
+            setAgentState("planning");
+            setCurrentAction("WAITING FOR CONFIRMATION");
+            setStatus("success");
+            setStatusMessage("ACTION PLANNED");
+            if (response.pendingAction) {
+              setPendingAction(
+                typeof response.pendingAction === "string" 
+                  ? response.pendingAction 
+                  : JSON.stringify(response.pendingAction, null, 2)
+              );
+            }
+            setShowConfirmation(true);
+          } else if (response.status === "running") {
+            setAgentState("executing");
+            setCurrentAction("EXECUTING");
+            setStatus("loading");
+            setStatusMessage("RUNNING...");
+            setShowConfirmation(false);
+          }
+        });
+      }, 500);
+    }
+
+    return () => {
+      if (intervalId) window.clearInterval(intervalId);
+    };
+  }, [agentState]);
 
   /* =========================
      RUN TASK
@@ -370,90 +436,28 @@ function App() {
     setPendingAction("");
 
     setAgentState("thinking");
-
-    setCurrentAction("ANALYZING TASK");
-
-    setPrivacyStatus(
-      "SANITIZING CONTEXT"
-    );
-
+    setCurrentAction("STARTING TASK...");
+    setPrivacyStatus("SANITIZING CONTEXT");
     setVisionStatus("NOT ACTIVE");
-
     setStatus("loading");
-    setStatusMessage("THINKING...");
+    setStatusMessage("INITIALIZING...");
 
-    await new Promise((resolve) =>
-      setTimeout(resolve, 700)
+    chrome.runtime.sendMessage(
+      { type: "run", task: enteredTask },
+      (result) => {
+        if (chrome.runtime.lastError) {
+          setAgentState("error");
+          setCurrentAction("CONNECTION FAILED");
+          setStatus("error");
+          setStatusMessage(chrome.runtime.lastError.message || "Failed to start");
+        } else if (result && !result.ok) {
+          setAgentState("error");
+          setCurrentAction("TASK FAILED");
+          setStatus("error");
+          setStatusMessage(result.error || "Failed to start");
+        }
+      }
     );
-
-    setAgentState("planning");
-
-    setCurrentAction(
-      "BUILDING ACTION PLAN"
-    );
-
-    setPrivacyStatus(
-      "CONTEXT SANITIZED"
-    );
-
-    setStatusMessage(
-      "PLANNING TASK..."
-    );
-
-    await new Promise((resolve) =>
-      setTimeout(resolve, 700)
-    );
-
-    /*
-     * TEMPORARY FRONTEND DEMO PLAN
-     *
-     * The backend will eventually return
-     * this structure from /agent/plan.
-     */
-
-    const demoPlan: AgentPlan = {
-      success: true,
-      mode: "frontend-demo",
-      task: enteredTask,
-
-      plan: [
-        {
-          step: 1,
-          action: "ANALYZE TASK",
-          status: "READY",
-        },
-        {
-          step: 2,
-          action: "PREPARE REQUIRED TOOLS",
-          status: "READY",
-        },
-        {
-          step: 3,
-          action: "SUBMIT FORM",
-          status: "CONFIRMATION REQUIRED",
-          requiresConfirmation: true,
-        },
-      ],
-    };
-
-    setAgentPlan(demoPlan);
-
-    setAgentState("executing");
-
-    setCurrentAction(
-      "CONFIRMATION REQUIRED"
-    );
-
-    setVisionStatus("NOT REQUIRED");
-
-    setStatus("success");
-    setStatusMessage(
-      "ACTION NEEDS APPROVAL"
-    );
-
-    setPendingAction("SUBMIT FORM");
-
-    setShowConfirmation(true);
   }
 
   /* =========================
@@ -463,28 +467,12 @@ function App() {
   function handleConfirmAction() {
     setShowConfirmation(false);
     setPendingAction("");
-
     setAgentState("executing");
-
-    setCurrentAction(
-      "EXECUTING CONFIRMED ACTION"
-    );
-
+    setCurrentAction("EXECUTING CONFIRMED ACTION");
     setStatus("loading");
     setStatusMessage("EXECUTING...");
 
-    setTimeout(() => {
-      setAgentState("success");
-
-      setCurrentAction(
-        "ACTION COMPLETED"
-      );
-
-      setStatus("success");
-      setStatusMessage(
-        "TASK COMPLETED"
-      );
-    }, 1000);
+    chrome.runtime.sendMessage({ type: "confirm" });
   }
 
   /* =========================
@@ -717,6 +705,8 @@ function App() {
         <ApiKeyInput
           value={apiKey}
           onChange={setApiKey}
+          onValidate={handleValidateKey}
+          isValidating={loadingModels}
           disabled={!provider}
         />
 
@@ -727,15 +717,17 @@ function App() {
 
         <div className="divider" />
 
-        <ModelSelect
-          models={models}
-          value={selectedModel}
-          onChange={setSelectedModel}
-          disabled={
-            loadingModels ||
-            models.length === 0
-          }
-        />
+        {models.length > 0 && (
+          <ModelSelect
+            models={models}
+            value={selectedModel}
+            onChange={setSelectedModel}
+            disabled={
+              loadingModels ||
+              models.length === 0
+            }
+          />
+        )}
 
         {loadingModels && (
           <span className="model-count">
@@ -1116,6 +1108,17 @@ function App() {
           </div>
 
         </div>
+      )}
+
+      {/* =========================
+          VOICE INPUT MODAL
+          ========================= */}
+
+      {showVoice && (
+        <VoiceInput
+          onTranscript={handleVoiceTranscript}
+          onClose={() => setShowVoice(false)}
+        />
       )}
 
       {/* =========================

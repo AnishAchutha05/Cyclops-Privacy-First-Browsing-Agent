@@ -32,6 +32,7 @@ class Planner:
         available_tools: list[str],
         provider: str,
         model: str,
+        api_key: str | None = None,
     ) -> list[dict[str, Any]]:
         """
         Generate a validated action plan.
@@ -66,7 +67,7 @@ class Planner:
                      len(built.system), len(built.user))
 
         # 3. Call provider
-        raw_output = await llm.generate(prompt=built, model=model)
+        raw_output = await llm.generate(prompt=built, model=model, api_key=api_key)
         logger.debug("Raw model output received (%d chars)", len(raw_output))
 
         # 4. Parse + validate

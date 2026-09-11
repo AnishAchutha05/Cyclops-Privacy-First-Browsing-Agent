@@ -23,15 +23,17 @@ class GoogleProvider(BaseProvider):
     def provider_id(self) -> str:
         return "google"
 
-    async def generate(self, prompt: BuiltPrompt, model: str) -> str:
+    async def generate(self, prompt: BuiltPrompt, model: str, api_key: str | None = None) -> str:
         settings = get_settings()
 
-        if not settings.google_api_key:
+        resolved_key = api_key or settings.google_api_key
+
+        if not resolved_key:
             raise RuntimeError(
-                "GOOGLE_API_KEY is not configured. Set it in the server environment."
+                "GOOGLE_API_KEY is not configured and no key was provided."
             )
 
-        genai.configure(api_key=settings.google_api_key)
+        genai.configure(api_key=resolved_key)
 
         # Combine system + user into a single user turn (Gemini approach).
         full_prompt = f"{prompt.system}\n\n{prompt.user}"
@@ -56,15 +58,17 @@ class GoogleProvider(BaseProvider):
         logger.debug("Google response length: %d chars", len(content))
         return content
 
-    async def list_models(self) -> list[ModelInfo]:
+    async def list_models(self, api_key: str | None = None) -> list[ModelInfo]:
         settings = get_settings()
 
-        if not settings.google_api_key:
+        resolved_key = api_key or settings.google_api_key
+
+        if not resolved_key:
             raise RuntimeError(
-                "GOOGLE_API_KEY is not configured. Set it in the server environment to discover models."
+                "GOOGLE_API_KEY is not configured and no key was provided."
             )
 
-        genai.configure(api_key=settings.google_api_key)
+        genai.configure(api_key=resolved_key)
 
         try:
             logger.info("Querying Google for available models")

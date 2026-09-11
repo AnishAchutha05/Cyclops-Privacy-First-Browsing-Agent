@@ -27,16 +27,18 @@ class OpenRouterProvider(BaseProvider):
     def provider_id(self) -> str:
         return "openrouter"
 
-    async def generate(self, prompt: BuiltPrompt, model: str) -> str:
+    async def generate(self, prompt: BuiltPrompt, model: str, api_key: str | None = None) -> str:
         settings = get_settings()
 
-        if not settings.openrouter_api_key:
+        resolved_key = api_key or settings.openrouter_api_key
+
+        if not resolved_key:
             raise RuntimeError(
-                "OPENROUTER_API_KEY is not configured. Set it in the server environment."
+                "OPENROUTER_API_KEY is not configured and no key was provided."
             )
 
         client = openai.AsyncOpenAI(
-            api_key=settings.openrouter_api_key,
+            api_key=resolved_key,
             base_url=_OPENROUTER_BASE_URL,
             default_headers={
                 "HTTP-Referer": _APP_REFERER,
@@ -62,16 +64,18 @@ class OpenRouterProvider(BaseProvider):
         logger.debug("OpenRouter response length: %d chars", len(content))
         return content
 
-    async def list_models(self) -> list[ModelInfo]:
+    async def list_models(self, api_key: str | None = None) -> list[ModelInfo]:
         settings = get_settings()
 
-        if not settings.openrouter_api_key:
+        resolved_key = api_key or settings.openrouter_api_key
+
+        if not resolved_key:
             raise RuntimeError(
-                "OPENROUTER_API_KEY is not configured. Set it in the server environment to discover models."
+                "OPENROUTER_API_KEY is not configured and no key was provided."
             )
 
         client = openai.AsyncOpenAI(
-            api_key=settings.openrouter_api_key,
+            api_key=resolved_key,
             base_url=_OPENROUTER_BASE_URL,
             default_headers={
                 "HTTP-Referer": _APP_REFERER,

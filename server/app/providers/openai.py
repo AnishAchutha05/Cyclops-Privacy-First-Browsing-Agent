@@ -23,15 +23,17 @@ class OpenAIProvider(BaseProvider):
     def provider_id(self) -> str:
         return "openai"
 
-    async def generate(self, prompt: BuiltPrompt, model: str) -> str:
+    async def generate(self, prompt: BuiltPrompt, model: str, api_key: str | None = None) -> str:
         settings = get_settings()
+        
+        resolved_key = api_key or settings.openai_api_key
 
-        if not settings.openai_api_key:
+        if not resolved_key:
             raise RuntimeError(
-                "OPENAI_API_KEY is not configured. Set it in the server environment."
+                "OPENAI_API_KEY is not configured and no key was provided."
             )
 
-        client = openai.AsyncOpenAI(api_key=settings.openai_api_key)
+        client = openai.AsyncOpenAI(api_key=resolved_key)
 
         try:
             logger.info("Calling OpenAI — model=%s", model)
@@ -52,15 +54,17 @@ class OpenAIProvider(BaseProvider):
         logger.debug("OpenAI response length: %d chars", len(content))
         return content
 
-    async def list_models(self) -> list[ModelInfo]:
+    async def list_models(self, api_key: str | None = None) -> list[ModelInfo]:
         settings = get_settings()
+        
+        resolved_key = api_key or settings.openai_api_key
 
-        if not settings.openai_api_key:
+        if not resolved_key:
             raise RuntimeError(
-                "OPENAI_API_KEY is not configured. Set it in the server environment to discover models."
+                "OPENAI_API_KEY is not configured and no key was provided to discover models."
             )
 
-        client = openai.AsyncOpenAI(api_key=settings.openai_api_key)
+        client = openai.AsyncOpenAI(api_key=resolved_key)
 
         try:
             logger.info("Querying OpenAI for available models")

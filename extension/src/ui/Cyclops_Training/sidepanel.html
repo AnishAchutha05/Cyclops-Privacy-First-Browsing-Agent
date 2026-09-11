@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Cyclops Control Panel</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      margin: 0;
+      padding: 16px;
+      background-color: #090d16;
+      color: #f1f5f9;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      box-sizing: border-box;
+    }
+    .panel-header {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #38bdf8;
+      border-bottom: 1px solid #1e293b;
+      padding-bottom: 12px;
+      margin-bottom: 16px;
+    }
+    .status-badge {
+      background-color: #111827;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .indicator-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: #64748b;
+    }
+    .state-ready .indicator-dot { background-color: #10b981; }
+    .state-listening .indicator-dot { background-color: #38bdf8; animation: pulse 1.4s infinite; }
+    .state-processing .indicator-dot { background-color: #f59e0b; }
+    .state-error .indicator-dot { background-color: #ef4444; }
+
+    .transcript-terminal {
+      flex-grow: 1;
+      background-color: #020617;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      padding: 14px;
+      font-family: monospace;
+      font-size: 0.95rem;
+      line-height: 1.6;
+      overflow-y: auto;
+      margin-bottom: 16px;
+    }
+    .interim-text {
+      color: #64748b;
+      font-style: italic;
+    }
+    .action-row {
+      display: flex;
+      gap: 10px;
+    }
+    button {
+      flex: 1;
+      background-color: #2563eb;
+      color: #ffffff;
+      border: none;
+      padding: 14px;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover { background-color: #1d4ed8; }
+    button:disabled { background-color: #334155; color: #94a3b8; cursor: not-allowed; }
+    #stop-trigger { background-color: #dc2626; }
+    #stop-trigger:hover { background-color: #b91c1c; }
+
+    @keyframes pulse {
+      0%, 100__ { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+  </style>
+</head>
+<body>
+  <div class="panel-header">CYCLOPS VOICE INPUT HUB</div>
+  
+  <div id="status-card" class="status-badge state-ready">
+    <div class="indicator-dot"></div>
+    <span id="status-label">Ready</span>
+  </div>
+
+  <div class="transcript-terminal" id="terminal-feed">
+    <span class="interim-text">System ready. Connect microphone and click Start...</span>
+  </div>
+
+  <div class="action-row">
+    <button id="start-trigger">Start Listening</button>
+    <button id="stop-trigger" disabled>Stop</button>
+  </div>
+
+  <script src="sidepanel.js"></script>
+</body>
+</html>

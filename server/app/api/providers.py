@@ -3,8 +3,9 @@
 Allows the browser extension UI to enumerate available LLM providers
 without hard-coding provider IDs on the frontend.
 """
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel
+from typing import Optional
 
 from app.providers.base import ModelInfo
 from app.providers.registry import ProviderRegistry, UnsupportedProviderError
@@ -44,9 +45,13 @@ class ModelsResponse(BaseModel):
 
 
 @router.get("/providers/{provider}/models", response_model=ModelsResponse, summary="List available models for a provider")
-async def list_models(provider: str) -> ModelsResponse:
+async def list_models(
+    provider: str,
+    x_api_key: Optional[str] = Header(default=None)
+) -> ModelsResponse:
     """
-    Query the given provider's API for available models using configured credentials.
+    Query the given provider's API for available models using configured credentials
+    or the optionally provided X-API-Key header.
     """
     try:
         provider_instance = _registry.get(provider)
@@ -55,7 +60,7 @@ async def list_models(provider: str) -> ModelsResponse:
 
     try:
         logger.info("Discovering models for provider=%s", provider)
-        models = await provider_instance.list_models()
+        models = await provider_instance.list_models(api_key=x_api_key)
         return ModelsResponse(provider=provider, models=models)
     except RuntimeError as exc:
         logger.error("Model discovery failed for %s: %s", provider, exc)

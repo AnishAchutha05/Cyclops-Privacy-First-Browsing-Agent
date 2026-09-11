@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "Cyclops Voice Agent Core",
+  "version": "1.0.0",
+  "description": "On-device voice input integration module for ISRO browser agents.",
+  "permissions": [
+    "sidePanel",
+    "audio",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "action": {
+    "default_title": "Open Cyclops Voice Panel"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "minimum_chrome_version": "114"
+}
