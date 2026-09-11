@@ -1,0 +1,2 @@
+export interface TaskMemory { task:string; completed:number[]; notes:string[]; }
+export class TaskMemoryStore { private memory:TaskMemory; constructor(task:string){this.memory={task,completed:[],notes:[]};} markComplete(i:number){this.memory.completed.push(i);} addNote(n:string){this.memory.notes.push(n);} snapshot(){return structuredClone(this.memory);} }

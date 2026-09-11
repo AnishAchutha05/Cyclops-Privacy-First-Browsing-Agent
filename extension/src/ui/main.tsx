@@ -1,0 +1,3 @@
+import React,{useState} from "react"; import {createRoot} from "react-dom/client";
+function App(){const [task,setTask]=useState("");const [status,setStatus]=useState("Idle");const run=()=>{setStatus("Running");chrome.runtime.sendMessage({type:"run",task},(r)=>setStatus(r?.ok?"Completed":`Failed: ${r?.error||"unknown"}`));};return <main style={{fontFamily:"sans-serif",padding:16,width:300}}><h2>Cyclops</h2><textarea value={task} onChange={e=>setTask(e.target.value)} placeholder="What should I do?" rows={4} style={{width:"100%"}}/><button disabled={!task.trim()} onClick={run}>Run task</button><p>{status}</p></main>}
+createRoot(document.getElementById("root")!).render(<App/>);

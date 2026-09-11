@@ -1,0 +1,1 @@
+import { findElement } from "../dom/state"; export function click(target:string):void{const e=findElement(target);if(!e)throw new Error(`Element not found: ${target}`);if((e as HTMLButtonElement).disabled)throw new Error("Element disabled");e.click();}

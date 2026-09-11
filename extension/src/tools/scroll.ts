@@ -1,0 +1,1 @@
+export function scroll(direction:"up"|"down"|"left"|"right"):void{const x=direction==="left"?-400:direction==="right"?400:0,y=direction==="up"?-500:direction==="down"?500:0;window.scrollBy({left:x,top:y,behavior:"smooth"});}

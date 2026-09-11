@@ -1,0 +1,3 @@
+import { AgentLoop } from "./agent-loop";
+export type TaskStatus="idle"|"running"|"completed"|"failed";
+export class TaskManager { status:TaskStatus="idle"; error?:string; constructor(private loop:AgentLoop){} async start(task:string){if(this.status==="running")throw new Error("Task already running");this.status="running";this.error=undefined;try{await this.loop.run(task);this.status="completed";}catch(e){this.status="failed";this.error=e instanceof Error?e.message:String(e);throw e;}}}

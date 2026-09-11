@@ -1,0 +1,1 @@
+import{b as u,e as i}from"./assets/tool-runtime-DqpH1NXM.js";chrome.runtime.onMessage.addListener((t,n,r)=>t.type==="context"?(r(u()),!0):t.type==="execute"&&t.action?(i(t.action).then(()=>r({ok:!0})).catch(e=>r({ok:!1,error:String(e)})),!0):!1);

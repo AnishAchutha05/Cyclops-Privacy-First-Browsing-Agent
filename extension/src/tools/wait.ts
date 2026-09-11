@@ -1,0 +1,1 @@
+export const wait=(ms:number)=>new Promise<void>(resolve=>setTimeout(resolve,Math.max(0,Math.min(ms,30000))));

@@ -1,0 +1,1 @@
+import { findElement } from "../dom/state"; export function upload(target:string,file:File):void{const e=findElement(target) as HTMLInputElement|null;if(!e||e.type!=="file")throw new Error("File input not found");const dt=new DataTransfer();dt.items.add(file);e.files=dt.files;e.dispatchEvent(new Event("change",{bubbles:true}));}

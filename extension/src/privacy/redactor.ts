@@ -1,0 +1,2 @@
+import { detectSensitive } from "./detector";
+export function redact(value:string):string { let out=value; for(const kind of detectSensitive(value)){ const re=kind==="email"?/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi:kind==="phone"?/\b(?:\+?\d[\d\s().-]{7,}\d)\b/g:kind==="ssn"?/\b\d{3}-\d{2}-\d{4}\b/g:kind==="credit_card"?/\b(?:\d[ -]*?){13,19}\b/g:/\b\d{1,5}\s+\w+(?:\s+\w+){1,4}\s(?:street|st|road|rd|avenue|ave|lane|ln|drive|dr)\b/gi; out=out.replace(re,"[REDACTED]"); } return out; }

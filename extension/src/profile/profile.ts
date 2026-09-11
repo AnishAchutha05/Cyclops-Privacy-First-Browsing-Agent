@@ -1,0 +1,2 @@
+import { Profile } from "../types"; import { loadProfile } from "./storage";
+export async function resolveProfile(path:string,profile?:Profile):Promise<string>{if(!/^local_profile\..+/.test(path))throw new Error("Only local profile references are allowed"); const p=profile||await loadProfile(); const value=p[path.slice("local_profile.".length)]; if(!value)throw new Error(`Profile value unavailable: ${path}`); return value;}

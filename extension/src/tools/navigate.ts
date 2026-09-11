@@ -1,0 +1,1 @@
+export function navigate(url:string):void{const u=new URL(url);if(!["http:","https:"].includes(u.protocol))throw new Error("Unsafe navigation URL");location.assign(u.href);}
