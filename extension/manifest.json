@@ -1,0 +1,6 @@
+{
+  "manifest_version": 3,
+  "name": "Cyclops",
+  "version": "0.1.0",
+  "description": "Privacy-first browser agent"
+}
