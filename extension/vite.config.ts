@@ -37,6 +37,8 @@ const copyExtensionManifest = {
 };
 
 export default defineConfig({
+  // Use relative asset paths so the built extension works under chrome-extension:// URLs
+  base: './',
   plugins: [copyExtensionManifest],
   build: {
     outDir: 'dist',

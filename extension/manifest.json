@@ -2,5 +2,15 @@
   "manifest_version": 3,
   "name": "Cyclops",
   "version": "0.1.0",
-  "description": "Privacy-first browser agent"
+  "description": "Privacy-first browser agent",
+
+  "action": {
+    "default_title": "Cyclops Vision",
+    "default_popup": "index.html"
+  },
+  "permissions": ["activeTab"],
+
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  }
 }

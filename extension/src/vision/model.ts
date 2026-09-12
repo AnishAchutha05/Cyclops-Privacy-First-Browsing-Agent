@@ -15,10 +15,11 @@ export function resolveModelUrl(): string {
   return '/models/best.onnx';
 }
 
-export async function loadVisionModel(): Promise<ort.InferenceSession> {
+export async function loadVisionModel(): Promise<{ session: ort.InferenceSession; provider: string }> {
   const providers: string[] = [];
 
-  if (typeof navigator !== 'undefined' && 'gpu' in navigator) {
+  const webgpuAvailable = typeof navigator !== 'undefined' && 'gpu' in navigator;
+  if (webgpuAvailable) {
     providers.push('webgpu');
   }
 
@@ -44,7 +45,7 @@ export async function loadVisionModel(): Promise<ort.InferenceSession> {
         throw new Error(`Model output '${MODEL_OUTPUT_NAME}' not found.`);
       }
 
-      return session;
+      return { session, provider };
     } catch (error) {
       lastError = error;
     }

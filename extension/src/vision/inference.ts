@@ -150,15 +150,21 @@ function decodeModelOutput(
 export async function runVisionInference(
   image: HTMLImageElement | HTMLCanvasElement | ImageBitmap | ImageData,
   originalWidth: number,
-  originalHeight: number
+  originalHeight: number,
+  session?: ort.InferenceSession
 ): Promise<Detection[]> {
   configureOrtForBrowser();
 
-  const session = await loadVisionModel();
+  let usedSession = session;
+  if (!usedSession) {
+    const loaded = await loadVisionModel();
+    usedSession = loaded.session;
+  }
+
   const { tensor, letterbox } = preprocessImageToTensor(image);
 
   const modelInput = new ort.Tensor('float32', tensor, [1, 3, MODEL_SIZE, MODEL_SIZE]);
-  const output = await session.run({ images: modelInput });
+  const output = await usedSession.run({ images: modelInput });
   const rawOutput = output.output0 as ort.Tensor;
   const data = rawOutput.data as Float32Array;
 
