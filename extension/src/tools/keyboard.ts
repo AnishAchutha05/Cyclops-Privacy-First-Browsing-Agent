@@ -1,1 +1,2 @@
-export function pressKey(key:string,target?:string):void{const e=(target?document.getElementById(target):document.activeElement)||document.body;e.dispatchEvent(new KeyboardEvent("keydown",{key,bubbles:true}));if(key==="Enter"&&e instanceof HTMLElement)e.click();}
+import { findElement } from "../dom/state";
+export function pressKey(key:string,target?:string):void{const e=(target?findElement(target):document.activeElement)||document.body;e.dispatchEvent(new KeyboardEvent("keydown",{key,bubbles:true}));if(key==="Enter"&&e instanceof HTMLElement)e.click();}

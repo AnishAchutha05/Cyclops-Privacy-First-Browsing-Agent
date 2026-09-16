@@ -493,6 +493,8 @@ function App() {
     setStatusMessage(
       "ACTION CANCELLED"
     );
+
+    chrome.runtime.sendMessage({ type: "reject" });
   }
 
   /* =========================
@@ -502,6 +504,10 @@ function App() {
   function handleStopTask() {
     setShowConfirmation(false);
     setPendingAction("");
+
+    chrome.runtime.sendMessage({ type: "stop" }, () => {
+      void chrome.runtime.lastError;
+    });
 
     setAgentState("idle");
 
@@ -527,6 +533,10 @@ function App() {
     setShowConfirmation(false);
     setPendingAction("");
     setAgentPlan(null);
+
+    chrome.runtime.sendMessage({ type: "cancel" }, () => {
+      void chrome.runtime.lastError;
+    });
 
     setAgentState("idle");
 

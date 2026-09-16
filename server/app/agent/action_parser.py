@@ -1,10 +1,7 @@
 """
-Action parser for the Cyclops planning layer.
-
-Converts raw model output (a string) into a validated, typed action plan.
-Raises ActionParserError for any malformed or unsafe response.
-The parser NEVER executes actions — it only validates and returns data.
+Strict parser and validator for Cyclops action plans.
 """
+
 import json
 import logging
 import re
@@ -12,9 +9,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-# ── Supported actions & their required fields ─────────────────────────────────
-
-SUPPORTED_ACTIONS: set[str] = {
+SUPPORTED_ACTIONS = {
     "click",
     "fill",
     "upload",
@@ -24,155 +19,181 @@ SUPPORTED_ACTIONS: set[str] = {
     "wait",
     "press_key",
     "select",
+    "done",
 }
 
-# Each action maps to a set of fields that MUST be present.
-_REQUIRED_FIELDS: dict[str, set[str]] = {
-    "click":      {"target"},
-    "fill":       {"target"},        # value or value_source checked separately
-    "upload":     {"target", "value_source"},
-    "scroll":     {"direction"},
-    "navigate":   {"url"},
-    "screenshot": set(),             # no required fields
-    "wait":       {"duration_ms"},
-    "press_key":  {"key"},
-    "select":     {"target", "value"},
+VALID_MODES = {"single_step", "multi_step"}
+
+_SCROLL_DIRECTIONS = {"up", "down", "left", "right"}
+
+_SAFE_FIELDS = {
+    "action",
+    "target",
+    "value",
+    "value_source",
+    "direction",
+    "amount",
+    "url",
+    "key",
+    "duration_ms",
+    "selector",
 }
 
-# Valid values for direction in scroll actions
-_SCROLL_DIRECTIONS: set[str] = {"up", "down", "left", "right"}
-
-
-# ── Exceptions ────────────────────────────────────────────────────────────────
 
 class ActionParserError(ValueError):
-    """Raised when model output cannot be parsed into a valid action plan."""
+    """Raised when model output is invalid."""
 
 
-# ── Public API ────────────────────────────────────────────────────────────────
-
-def parse(raw_output: str) -> list[dict[str, Any]]:
-    """
-    Parse and validate raw model output into a list of action dicts.
-
-    Args:
-        raw_output:  Raw string returned by the LLM provider.
-
-    Returns:
-        List of validated action dicts ready to be returned to the extension.
-
-    Raises:
-        ActionParserError: If the output is malformed, uses unsupported actions,
-                           or is missing required fields.
-    """
+def parse(raw_output: str) -> dict[str, Any]:
     cleaned = _strip_markdown_fences(raw_output)
 
     try:
         data = json.loads(cleaned)
     except json.JSONDecodeError as exc:
         logger.warning("Model returned invalid JSON: %s", exc)
-        raise ActionParserError(f"Model response is not valid JSON: {exc}") from exc
+        raise ActionParserError(
+            f"Model response is not valid JSON: {exc}"
+        ) from exc
 
     if not isinstance(data, dict):
-        raise ActionParserError("Model response must be a JSON object, got a different type.")
+        raise ActionParserError("Model response must be a JSON object.")
 
-    if "actions" not in data:
-        raise ActionParserError("Model response missing required 'actions' key.")
+    mode = data.get("mode")
+    if mode not in VALID_MODES:
+        raise ActionParserError(
+            f"'mode' must be one of {sorted(VALID_MODES)}."
+        )
 
-    actions = data["actions"]
+    actions = data.get("actions")
+
     if not isinstance(actions, list):
         raise ActionParserError("'actions' must be a JSON array.")
 
-    if len(actions) == 0:
-        raise ActionParserError("'actions' array is empty — model returned no actions.")
+    if len(actions) != 1:
+        raise ActionParserError(
+            "Exactly ONE action must be returned per response."
+        )
 
-    validated: list[dict[str, Any]] = []
-    for idx, item in enumerate(actions):
-        validated.append(_validate_action(item, idx))
+    action = _validate_action(actions[0], 0)
 
-    return validated
+    if action["action"] == "done" and len(actions) != 1:
+        raise ActionParserError("'done' must be the only action.")
 
+    return {
+        "mode": mode,
+        "actions": [action],
+    }
 
-# ── Internals ─────────────────────────────────────────────────────────────────
 
 def _strip_markdown_fences(text: str) -> str:
-    """Remove ```json ... ``` or ``` ... ``` fences that some models wrap output in."""
     stripped = text.strip()
-    # Match optional language tag after opening fence
-    match = re.match(r"^```(?:json)?\s*\n?([\s\S]*?)\n?```\s*$", stripped, re.IGNORECASE)
+
+    match = re.match(
+        r"^```(?:json)?\s*\n?([\s\S]*?)\n?```\s*$",
+        stripped,
+        re.IGNORECASE,
+    )
+
     if match:
         return match.group(1).strip()
+
     return stripped
 
 
 def _validate_action(item: Any, idx: int) -> dict[str, Any]:
-    """Validate a single action dict. Raises ActionParserError on failure."""
     if not isinstance(item, dict):
-        raise ActionParserError(f"Action at index {idx} is not a JSON object.")
+        raise ActionParserError(
+            f"Action at index {idx} must be a JSON object."
+        )
 
     action_name = item.get("action")
-    if not action_name:
-        raise ActionParserError(f"Action at index {idx} is missing the 'action' field.")
 
     if not isinstance(action_name, str):
-        raise ActionParserError(f"Action at index {idx}: 'action' must be a string.")
+        raise ActionParserError(
+            f"Action at index {idx} is missing a valid 'action'."
+        )
 
     if action_name not in SUPPORTED_ACTIONS:
         raise ActionParserError(
-            f"Action at index {idx}: unsupported action '{action_name}'. "
-            f"Supported actions: {sorted(SUPPORTED_ACTIONS)}"
+            f"Unsupported action '{action_name}'."
         )
 
-    required = _REQUIRED_FIELDS[action_name]
-    missing = required - set(item.keys())
-    if missing:
-        raise ActionParserError(
-            f"Action at index {idx} ('{action_name}') is missing required fields: {sorted(missing)}"
-        )
+    if action_name == "click":
+        _require(item, "target", action_name)
 
-    # Extra semantic validations per action type
-    if action_name == "scroll":
-        direction = item.get("direction")
-        if direction not in _SCROLL_DIRECTIONS:
+    elif action_name == "fill":
+        _require(item, "target", action_name)
+
+        if "value" not in item and "value_source" not in item:
             raise ActionParserError(
-                f"Action at index {idx} ('scroll'): 'direction' must be one of "
-                f"{sorted(_SCROLL_DIRECTIONS)}, got '{direction}'."
+                "fill requires 'value' or 'value_source'."
             )
 
-    if action_name == "wait":
-        duration = item.get("duration_ms")
+    elif action_name == "upload":
+        _require(item, "target", action_name)
+        _require(item, "value_source", action_name)
+
+    elif action_name == "scroll":
+        _require(item, "direction", action_name)
+
+        if item["direction"] not in _SCROLL_DIRECTIONS:
+            raise ActionParserError(
+                f"Invalid scroll direction: {item['direction']}"
+            )
+
+        if "amount" in item:
+            if not isinstance(item["amount"], int) or item["amount"] <= 0:
+                raise ActionParserError(
+                    "scroll 'amount' must be a positive integer."
+                )
+
+    elif action_name == "navigate":
+        _require(item, "url", action_name)
+
+        if not isinstance(item["url"], str):
+            raise ActionParserError("navigate 'url' must be a string.")
+
+    elif action_name == "wait":
+        _require(item, "duration_ms", action_name)
+
+        duration = item["duration_ms"]
+
         if not isinstance(duration, int) or duration < 0:
             raise ActionParserError(
-                f"Action at index {idx} ('wait'): 'duration_ms' must be a non-negative integer."
+                "wait 'duration_ms' must be a non-negative integer."
             )
 
-    if action_name == "fill":
-        # fill needs at least one of value or value_source
-        if "value" not in item and "value_source" not in item:
-            logger.warning(
-                "Action %d ('fill') has neither 'value' nor 'value_source' — "
-                "extension may not know what to fill.",
-                idx,
-            )
+    elif action_name == "press_key":
+        _require(item, "key", action_name)
 
-    if action_name in ("fill", "upload") and "value_source" in item:
-        vs = item["value_source"]
-        if not isinstance(vs, str) or not vs.startswith("local_profile."):
+    elif action_name == "select":
+        _require(item, "target", action_name)
+        _require(item, "value", action_name)
+
+    if action_name in {"fill", "upload"} and "value_source" in item:
+        value_source = item["value_source"]
+
+        if (
+            not isinstance(value_source, str)
+            or not value_source.startswith("local_profile.")
+        ):
             raise ActionParserError(
-                f"Action at index {idx} ('{action_name}'): 'value_source' must start with "
-                f"'local_profile.' Got '{vs}'."
+                "'value_source' must start with 'local_profile.'."
             )
 
-    # Return only known safe fields — strip unexpected keys
-    return _extract_safe_fields(item)
+    return {
+        key: value
+        for key, value in item.items()
+        if key in _SAFE_FIELDS
+    }
 
 
-_SAFE_FIELDS: frozenset[str] = frozenset({
-    "action", "target", "value", "value_source",
-    "direction", "url", "key", "duration_ms", "selector",
-})
-
-
-def _extract_safe_fields(item: dict[str, Any]) -> dict[str, Any]:
-    """Return only the known safe fields from an action dict."""
-    return {k: v for k, v in item.items() if k in _SAFE_FIELDS}
+def _require(
+    item: dict[str, Any],
+    field: str,
+    action_name: str,
+) -> None:
+    if field not in item:
+        raise ActionParserError(
+            f"{action_name} requires '{field}'."
+        )

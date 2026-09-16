@@ -4,6 +4,7 @@ Google Generative AI provider for Cyclops.
 Reads GOOGLE_API_KEY from settings.
 Uses the google-generativeai Python SDK.
 """
+import asyncio
 import logging
 
 import google.generativeai as genai
@@ -72,9 +73,9 @@ class GoogleProvider(BaseProvider):
 
         try:
             logger.info("Querying Google for available models")
-            # Google's list_models is synchronous in the SDK, so we can just call it
-            # list_models returns an iterator of Model objects
-            models_iter = genai.list_models()
+            # genai.list_models() is a blocking/synchronous SDK call — run it in a
+            # worker thread so it doesn't stall the asyncio event loop.
+            models_iter = await asyncio.to_thread(lambda: list(genai.list_models()))
         except Exception as exc:
             logger.error("Google model discovery error: %s", exc)
             raise RuntimeError(f"Google Generative AI error: {exc}") from exc

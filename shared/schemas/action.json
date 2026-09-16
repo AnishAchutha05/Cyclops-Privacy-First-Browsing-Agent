@@ -8,26 +8,31 @@
   "properties": {
     "action": {
       "type": "string",
-      "enum": ["click", "fill", "upload", "scroll", "navigate", "screenshot", "wait", "press_key", "select"],
+      "enum": ["click", "fill", "upload", "scroll", "navigate", "screenshot", "wait", "press_key", "select", "done"],
       "description": "The action type."
     },
     "target": {
       "type": "string",
-      "description": "Identifier of the page element to act on (used by click, fill, upload, press_key, select, scroll)."
+      "description": "Identifier of the page element to act on."
     },
     "value": {
       "type": "string",
-      "description": "Literal value to use (for select, or non-sensitive fill). Prefer value_source for anything private."
+      "description": "Literal value to use (for select, or non-sensitive fill). Prefer value_source for private data."
     },
     "value_source": {
       "type": "string",
-      "description": "Local profile reference the extension resolves on-device. E.g. 'local_profile.email', 'local_profile.resume'. Never resolved server-side.",
+      "description": "Local profile reference resolved only by the extension. E.g. local_profile.email or local_profile.resume.",
       "pattern": "^local_profile\\..+"
     },
     "direction": {
       "type": "string",
       "enum": ["up", "down", "left", "right"],
       "description": "Scroll direction."
+    },
+    "amount": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Scroll distance in pixels."
     },
     "url": {
       "type": "string",
@@ -36,7 +41,7 @@
     },
     "key": {
       "type": "string",
-      "description": "Key or key combination for press_key (e.g. 'Tab', 'Enter', 'Ctrl+A')."
+      "description": "Key or key combination for press_key."
     },
     "duration_ms": {
       "type": "integer",
@@ -47,5 +52,6 @@
       "type": "string",
       "description": "Optional CSS selector hint for the element."
     }
-  }
+  },
+  "additionalProperties": false
 }

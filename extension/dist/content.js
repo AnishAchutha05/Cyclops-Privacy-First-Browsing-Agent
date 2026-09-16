@@ -22,7 +22,7 @@
   function redact(value) {
     let out = value;
     for (const kind of detectSensitive(value)) {
-      const re = kind === "email" ? /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi : kind === "phone" ? /\b(?:\+?\d[\d\s().-]{7,}\d)\b/g : kind === "ssn" ? /\b\d{3}-\d{2}-\d{4}\b/g : kind === "credit_card" ? /\b(?:\d[ -]*?){13,19}\b/g : /\b\d{1,5}\s+\w+(?:\s+\w+){1,4}\s(?:street|st|road|rd|avenue|ave|lane|ln|drive|dr)\b/gi;
+      const re = kind === "email" ? /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi : kind === "phone" ? /\b(?:\+?\d[\d\s().-]{7,}\d)\b/g : kind === "ssn" ? /\b\d{3}-\d{2}-\d{4}\b/g : kind === "credit_card" ? /\b(?:\d[ -]*?){13,19}\b/g : kind === "api_key" ? /\b(?:sk-[A-Za-z0-9]{20,}|AIza[A-Za-z0-9_-]{30,}|gh[pousr]_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{20,})\b/g : /\b\d{1,5}\s+\w+(?:\s+\w+){1,4}\s(?:street|st|road|rd|avenue|ave|lane|ln|drive|dr)\b/gi;
       out = out.replace(re, "[REDACTED]");
     }
     return out;
@@ -61,7 +61,18 @@
 
   // src/context/builder.ts
   function buildContext(doc = document) {
-    return { page_title: sanitizeText(doc.title), page_url_base: sanitizeUrl(location.href), elements: extractElements(doc), sanitization_note: "PII, file paths, query parameters, and fragments are removed locally." };
+    const scrollY = window.scrollY;
+    const viewportHeight = window.innerHeight;
+    const documentHeight = document.documentElement.scrollHeight;
+    return {
+      page_title: sanitizeText(doc.title),
+      page_url_base: sanitizeUrl(location.href),
+      elements: extractElements(doc),
+      scroll_y: scrollY,
+      viewport_height: viewportHeight,
+      document_height: documentHeight,
+      sanitization_note: "PII, file paths, query parameters, and fragments are removed locally."
+    };
   }
 
   // src/dom/state.ts
@@ -87,7 +98,8 @@
     const e = findElement(target);
     if (!e) throw new Error(`Element not found: ${target}`);
     e.focus();
-    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+    const proto = e instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+    const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
     if (setter) setter.call(e, value);
     else e.value = value;
     e.dispatchEvent(new Event("input", { bubbles: true }));
@@ -105,14 +117,19 @@
   }
 
   // src/tools/scroll.ts
-  function scroll(direction) {
-    const x = direction === "left" ? -400 : direction === "right" ? 400 : 0, y = direction === "up" ? -500 : direction === "down" ? 500 : 0;
-    window.scrollBy({ left: x, top: y, behavior: "smooth" });
+  function scroll(direction, amount = 500) {
+    const distance = Math.max(0, amount);
+    const x = direction === "left" ? -distance : direction === "right" ? distance : 0;
+    const y = direction === "up" ? -distance : direction === "down" ? distance : 0;
+    window.scrollBy({ left: x, top: y, behavior: "auto" });
+    return new Promise((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    });
   }
 
   // src/tools/keyboard.ts
   function pressKey(key, target) {
-    const e = (target ? document.getElementById(target) : document.activeElement) || document.body;
+    const e = (target ? findElement(target) : document.activeElement) || document.body;
     e.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
     if (key === "Enter" && e instanceof HTMLElement) e.click();
   }
@@ -136,11 +153,37 @@
 
   // src/profile/profile.ts
   async function resolveProfile(path, profile) {
-    if (!/^local_profile\..+/.test(path)) throw new Error("Only local profile references are allowed");
+    if (!/^local_profile\..+/.test(path)) {
+      throw new Error("Only local profile references are allowed");
+    }
     const p = profile || await loadProfile();
     const value = p[path.slice("local_profile.".length)];
-    if (!value) throw new Error(`Profile value unavailable: ${path}`);
+    if (!value || typeof value !== "string") {
+      throw new Error(`Profile value unavailable: ${path}`);
+    }
     return value;
+  }
+  async function resolveProfileFile(path, profile) {
+    const value = await resolveProfile(path, profile);
+    if (!value.startsWith("data:")) {
+      throw new Error(
+        `Local file '${path}' must be stored as a data URL in the local profile before it can be uploaded`
+      );
+    }
+    const match = value.match(/^data:([^;,]+)?(?:;base64)?,(.*)$/s);
+    if (!match) throw new Error(`Invalid local file data for ${path}`);
+    const mime = match[1] || "application/octet-stream";
+    const body = match[2];
+    const isBase64 = value.startsWith(`data:${mime};base64,`);
+    let bytes;
+    if (isBase64) {
+      const binary = atob(body);
+      bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+    } else {
+      bytes = new TextEncoder().encode(decodeURIComponent(body));
+    }
+    const filename = path.slice("local_profile.".length).split("/").pop() || "upload";
+    return new File([bytes], filename, { type: mime });
   }
 
   // src/tools/screenshot.ts
@@ -164,17 +207,30 @@
     return canvas.toDataURL("image/png");
   }
 
+  // src/tools/upload.ts
+  function upload(target, file) {
+    const e = findElement(target);
+    if (!e || e.type !== "file") throw new Error("File input not found");
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    e.files = dt.files;
+    e.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
   // src/tools/tool-runtime.ts
   async function execute(action) {
     switch (action.action) {
       case "click":
         return click(required(action.target));
       case "fill":
-        return fill(required(action.target), action.value_source ? await resolveProfile(action.value_source) : required(action.value));
+        return fill(
+          required(action.target),
+          action.value_source ? await resolveProfile(action.value_source) : required(action.value)
+        );
       case "select":
         return select(required(action.target), required(action.value));
       case "scroll":
-        return scroll(action.direction || "down");
+        return scroll(action.direction || "down", action.amount ?? 500);
       case "press_key":
         return pressKey(required(action.key), action.target);
       case "navigate":
@@ -185,8 +241,9 @@
         await screenshot();
         return;
       case "upload":
-        await resolveProfile(required(action.value_source));
-        throw new Error("Upload requires an explicit local file selection; no file contents are available to the agent runtime");
+        return upload(required(action.target), await resolveProfileFile(required(action.value_source)));
+      case "done":
+        return;
       default:
         throw new Error(`Unsupported action: ${action.action}`);
     }
@@ -198,6 +255,10 @@
 
   // src/content.ts
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (message.type === "ping") {
+      sendResponse({ ok: true });
+      return true;
+    }
     if (message.type === "context") {
       sendResponse(buildContext());
       return true;

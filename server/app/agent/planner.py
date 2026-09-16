@@ -1,16 +1,7 @@
 """
-Planner — central orchestration layer for Cyclops.
-
-Responsibilities:
-  1. Accept task + sanitized context + tools + provider/model selection.
-  2. Look up the provider via the registry.
-  3. Build the prompt via prompt_builder.
-  4. Call the provider.
-  5. Parse + validate the response via action_parser.
-  6. Return the validated action plan.
-
-The planner is intentionally provider-agnostic. No if/elif chains for providers.
+Central planning orchestration for Cyclops.
 """
+
 import logging
 from typing import Any
 
@@ -23,7 +14,6 @@ _registry = ProviderRegistry()
 
 
 class Planner:
-    """Orchestrates the full planning pipeline for a single request."""
 
     async def plan(
         self,
@@ -33,45 +23,60 @@ class Planner:
         provider: str,
         model: str,
         api_key: str | None = None,
-    ) -> list[dict[str, Any]]:
-        """
-        Generate a validated action plan.
+    ) -> dict[str, Any]:
 
-        Args:
-            task:               User's stated goal.
-            sanitized_context:  Sanitized page representation (PII already redacted).
-            available_tools:    Tool names the extension supports.
-            provider:           Provider ID (e.g. 'openai', 'google').
-            model:              Model name within the provider.
+        logger.info(
+            "Planning started — provider=%s model=%s",
+            provider,
+            model,
+        )
 
-        Returns:
-            List of validated action dicts.
-
-        Raises:
-            UnsupportedProviderError: Provider ID not recognised.
-            ActionParserError:        Model returned invalid/unsupported output.
-            RuntimeError:             Provider API call failed.
-        """
-        logger.info("Planning started — provider=%s  model=%s", provider, model)
-
-        # 1. Resolve provider
         llm = _registry.get(provider)
 
-        # 2. Build prompt
-        built = prompt_builder.build_prompt(
+        prompt = prompt_builder.build_prompt(
             task=task,
             sanitized_context=sanitized_context,
             available_tools=available_tools,
         )
-        logger.debug("Prompt built — system=%d chars  user=%d chars",
-                     len(built.system), len(built.user))
 
-        # 3. Call provider
-        raw_output = await llm.generate(prompt=built, model=model, api_key=api_key)
-        logger.debug("Raw model output received (%d chars)", len(raw_output))
+        raw_output = await llm.generate(
+            prompt=prompt,
+            model=model,
+            api_key=api_key,
+        )
 
-        # 4. Parse + validate
-        actions = action_parser.parse(raw_output)
-        logger.info("Planning completed — %d action(s)", len(actions))
+        try:
+            result = action_parser.parse(raw_output)
 
-        return actions
+        except action_parser.ActionParserError as first_error:
+
+            logger.warning(
+                "First planner response was invalid: %s",
+                first_error,
+            )
+
+            retry_prompt = prompt_builder.build_prompt(
+                task=task,
+                sanitized_context=sanitized_context,
+                available_tools=available_tools,
+                correction=(
+                    "The previous response could not be parsed. "
+                    f"Parser error: {first_error}"
+                ),
+            )
+
+            raw_output = await llm.generate(
+                prompt=retry_prompt,
+                model=model,
+                api_key=api_key,
+            )
+
+            result = action_parser.parse(raw_output)
+
+        logger.info(
+            "Planning completed — mode=%s actions=%d",
+            result["mode"],
+            len(result["actions"]),
+        )
+
+        return result
